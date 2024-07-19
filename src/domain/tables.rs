@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use uuid::Uuid;
 use rand::Rng;
 use crate::protocol::protocol::{TableResponse, OrderResponse};
-use crate::db::memdb::{OrderDB, TableDB, MemDb};
+use crate::db::memdb::{OrderDB, TableDB, MemDb, OrdersInput};
 use rocket::State;
 
 pub fn get_all_tables(db: &State<MemDb>) -> Result<Vec<TableResponse>, String> {
@@ -28,20 +28,27 @@ pub fn get_order(table_id: u64, order_id: Uuid, db: &State<MemDb>) -> Result<Ord
         .ok_or_else(|| "Order not found".to_string())
 }
 
-pub fn add_order(table_id: u64, menu_item: String, db: &State<MemDb>) -> Result<Uuid, String> {
-    let mut tables = db.tables.lock().map_err(|_| "Failed get tables".to_string())?;
-    let cooking_time = format!("{} minutes", rand::thread_rng().gen_range(5..=15)); 
-    let order_id = Uuid::new_v4();
-    let order = OrderDB {
-        order_id,
-        menu_item,
-        cooking_time,
-    };
-    tables.entry(table_id).or_insert_with(|| TableDB {
-        table_id,
-        orders: HashMap::new(),
-    }).orders.insert(order_id, order);
-    Ok(order_id)
+pub fn add_orders(table_id: u64, orders_data: OrdersInput, db: &State<MemDb>) -> Result<Vec<Uuid>, String> {
+    let mut tables = db.tables.lock().map_err(|_| "Failed to acquire tables lock".to_string())?;
+    let mut order_ids = Vec::new();
+
+    for order_input in &orders_data.orders {
+        let cooking_time = format!("{} minutes", rand::thread_rng().gen_range(5..=15));
+        let order_id = Uuid::new_v4();
+        let order = OrderDB {
+            order_id,
+            menu_item: order_input.menu_item.clone(),
+            cooking_time,
+        };
+
+        tables.entry(table_id).or_insert_with(|| TableDB {
+            table_id,
+            orders: HashMap::new(),
+        }).orders.insert(order_id, order);
+
+        order_ids.push(order_id);
+    }
+    Ok(order_ids)
 }
 
 pub fn remove_order(table_id: u64, order_id: Uuid, db: &State<MemDb>) -> Result<(), String> {

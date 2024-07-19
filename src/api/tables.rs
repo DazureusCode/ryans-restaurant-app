@@ -1,7 +1,7 @@
 use rocket::{serde::json::Json, response::status, State, get, post, delete};
 use crate::protocol::protocol::{TableResponse, OrderResponse};
-use crate::domain::tables::{get_all_tables, get_orders, get_order, add_order, remove_order};
-use crate::db::memdb::MemDb;
+use crate::domain::tables::{get_all_tables, get_orders, get_order, add_orders, remove_order};
+use crate::db::memdb::{MemDb, OrdersInput};
 use uuid::Uuid;
 
 #[get("/tables")]
@@ -26,9 +26,9 @@ pub fn get_table_order(table_id: u64, order_id: String, db: &State<MemDb>) -> Re
         .map_err(|e| status::Custom(rocket::http::Status::InternalServerError, e))
 }
 
-#[post("/tables/<table_id>/orders", data = "<menu_item>")]
-pub fn add_table_order(table_id: u64, menu_item: String, db: &State<MemDb>) -> Result<Json<Uuid>, status::Custom<String>> {
-    add_order(table_id, menu_item, db)
+#[post("/tables/<table_id>/orders", data = "<orders_data>")]
+pub fn add_table_orders(table_id: u64, orders_data: Json<OrdersInput>, db: &State<MemDb>) -> Result<Json<Vec<Uuid>>, status::Custom<String>> {
+    add_orders(table_id, orders_data.into_inner(), db)
         .map(Json)
         .map_err(|e| status::Custom(rocket::http::Status::InternalServerError, e))
 }

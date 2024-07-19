@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use uuid::Uuid;
 use std::sync::Mutex;
+use rocket::serde::Deserialize;
 
 pub struct MemDb {
     pub tables: Mutex<HashMap<u64, TableDB>>,
@@ -20,6 +21,16 @@ impl MemDb {
             orders: HashMap::new(),
         });
     }
+}
+
+#[derive(Deserialize)]
+pub struct OrderInput {
+    pub menu_item: String,
+}
+
+#[derive(Deserialize)]
+pub struct OrdersInput {
+    pub orders: Vec<OrderInput>,
 }
 
 pub struct TableDB {

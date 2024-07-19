@@ -21,7 +21,7 @@ fn rocket() -> _ {
             api::tables::get_tables,
             api::tables::get_table_order,
             api::tables::get_table_orders,
-            api::tables::add_table_order,
+            api::tables::add_table_orders,
             api::tables::delete_table_order,
         ])
 }
