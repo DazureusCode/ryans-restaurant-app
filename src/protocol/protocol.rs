@@ -1,6 +1,6 @@
-use std::collections::HashMap;
-use uuid::Uuid;
 use serde::Serialize;
+use uuid::Uuid;
+use std::collections::HashMap;
 
 #[derive(Serialize)]
 pub struct TableResponse {

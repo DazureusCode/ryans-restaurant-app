@@ -1,0 +1,7 @@
+[default]
+address = "127.0.0.1"
+port = 8000
+secret_key = "${SECRET_KEY}"
+
+[global.databases.mysql]
+url = "${RESTAURANT_DATABASE_URL}"
