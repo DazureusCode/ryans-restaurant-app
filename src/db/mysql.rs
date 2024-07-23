@@ -1,6 +1,10 @@
 use mysql::prelude::*;
 use mysql::*;
 use rocket::serde::Deserialize;
+use crate::protocol::protocol::{TableResponse, OrderResponse};
+use crate::domain::tables::{get_all_tables, get_orders, get_order, add_orders, remove_order};
+use crate::api::Storage;
+use uuid::Uuid;
 
 #[derive(Debug, Deserialize)]
 pub struct OrderInput {
@@ -32,5 +36,32 @@ impl MySqlDb {
         }
 
         MySqlDb { pool }
+    }
+}
+
+impl Storage for MySqlDb {
+    fn get_tables(&self) -> Result<Vec<TableResponse>, String> {
+        let mut conn = self.pool.get_conn().map_err(|e| e.to_string())?;
+        get_all_tables(&mut conn)
+    }
+
+    fn get_table_orders(&self, table_id: u64) -> Result<Vec<OrderResponse>, String> {
+        let mut conn = self.pool.get_conn().map_err(|e| e.to_string())?;
+        get_orders(table_id, &mut conn)
+    }
+
+    fn get_table_order(&self, table_id: u64, order_id: Uuid) -> Result<OrderResponse, String> {
+        let mut conn = self.pool.get_conn().map_err(|e| e.to_string())?;
+        get_order(table_id, order_id, &mut conn)
+    }
+
+    fn add_table_orders(&self, table_id: u64, orders: OrdersInput) -> Result<Vec<Uuid>, String> {
+        let mut conn = self.pool.get_conn().map_err(|e| e.to_string())?;
+        add_orders(table_id, orders, &mut conn)
+    }
+
+    fn delete_table_order(&self, table_id: u64, order_id: Uuid) -> Result<(), String> {
+        let mut conn = self.pool.get_conn().map_err(|e| e.to_string())?;
+        remove_order(table_id, order_id, &mut conn)
     }
 }

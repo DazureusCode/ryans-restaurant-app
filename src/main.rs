@@ -8,6 +8,7 @@ mod protocol;
 use db::mysql::MySqlDb;
 use dotenv::dotenv;
 use std::env;
+use api::Storage;
 
 #[launch]
 fn rocket() -> _ {
@@ -16,7 +17,7 @@ fn rocket() -> _ {
     let database_url = env::var("RESTAURANT_DATABASE_URL").expect("RESTAURANT_DATABASE_URL must be declared");
     let secret_key = env::var("SECRET_KEY").expect("SECRET_KEY must be declared");
 
-    let db = MySqlDb::new(&database_url);
+    let db: Box<dyn Storage + Send + Sync> = Box::new(MySqlDb::new(&database_url));
 
     rocket::custom(
         rocket::Config::figment()

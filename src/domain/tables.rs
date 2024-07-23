@@ -1,20 +1,17 @@
 use uuid::Uuid;
 use rand::Rng;
 use crate::protocol::protocol::{TableResponse, OrderResponse};
-use crate::db::mysql::{MySqlDb, OrdersInput};
-use rocket::State;
+use crate::db::mysql::OrdersInput;
 use mysql::prelude::*;
 use mysql::*;
 
-pub fn get_all_tables(db: &State<MySqlDb>) -> Result<Vec<TableResponse>, String> {
-    let mut conn = db.pool.get_conn().map_err(|e| e.to_string())?;
-
+pub fn get_all_tables(conn: &mut PooledConn) -> Result<Vec<TableResponse>, String> {
     let table_ids: Vec<u64> = conn.query("SELECT table_id FROM tables")
         .map_err(|e| e.to_string())?;
 
     let mut result = Vec::new();
     for table_id in table_ids {
-        let orders = get_orders_for_table(&mut conn, table_id)?;
+        let orders = get_orders_for_table(conn, table_id)?;
         result.push(convert_to_table_response(table_id, orders));
     }
 
@@ -37,13 +34,11 @@ fn get_orders_for_table(conn: &mut PooledConn, table_id: u64) -> Result<Vec<Orde
     ).map_err(|e| e.to_string())
 }
 
-pub fn get_orders(table_id: u64, db: &State<MySqlDb>) -> Result<Vec<OrderResponse>, String> {
-    let mut conn = db.pool.get_conn().map_err(|e| e.to_string())?;
-    get_orders_for_table(&mut conn, table_id)
+pub fn get_orders(table_id: u64, conn: &mut PooledConn) -> Result<Vec<OrderResponse>, String> {
+    get_orders_for_table(conn, table_id)
 }
 
-pub fn get_order(table_id: u64, order_id: Uuid, db: &State<MySqlDb>) -> Result<OrderResponse, String> {
-    let mut conn = db.pool.get_conn().map_err(|e| e.to_string())?;
+pub fn get_order(table_id: u64, order_id: Uuid, conn: &mut PooledConn) -> Result<OrderResponse, String> {
     conn.exec_first(
         "SELECT order_id, menu_item, cooking_time FROM orders WHERE table_id = :table_id AND order_id = :order_id",
         params! {
@@ -59,8 +54,7 @@ pub fn get_order(table_id: u64, order_id: Uuid, db: &State<MySqlDb>) -> Result<O
     }).map_err(|e| e.to_string()).and_then(|opt| opt.ok_or("Order not found".to_string()))
 }
 
-pub fn add_orders(table_id: u64, orders_data: OrdersInput, db: &State<MySqlDb>) -> Result<Vec<Uuid>, String> {
-    let mut conn = db.pool.get_conn().map_err(|e| e.to_string())?;
+pub fn add_orders(table_id: u64, orders_data: OrdersInput, conn: &mut PooledConn) -> Result<Vec<Uuid>, String> {
     let mut order_ids = Vec::new();
 
     for order_input in orders_data.orders {
@@ -80,8 +74,7 @@ pub fn add_orders(table_id: u64, orders_data: OrdersInput, db: &State<MySqlDb>) 
     Ok(order_ids)
 }
 
-pub fn remove_order(table_id: u64, order_id: Uuid, db: &State<MySqlDb>) -> Result<(), String> {
-    let mut conn = db.pool.get_conn().map_err(|e| e.to_string())?;
+pub fn remove_order(table_id: u64, order_id: Uuid, conn: &mut PooledConn) -> Result<(), String> {
     conn.exec_drop(
         "DELETE FROM orders WHERE table_id = :table_id AND order_id = :order_id",
         params! {
