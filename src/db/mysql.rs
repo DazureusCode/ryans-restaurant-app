@@ -1,17 +1,17 @@
 use mysql::prelude::*;
 use mysql::*;
-use rocket::serde::Deserialize;
+use rocket::serde::{Deserialize, Serialize};
 use crate::protocol::protocol::{TableResponse, OrderResponse};
 use crate::domain::tables::{get_all_tables, get_orders, get_order, add_orders, remove_order};
 use crate::api::Storage;
 use uuid::Uuid;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct OrderInput {
     pub menu_item: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct OrdersInput {
     pub orders: Vec<OrderInput>,
 }
