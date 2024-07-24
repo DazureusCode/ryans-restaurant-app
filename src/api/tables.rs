@@ -1,43 +1,55 @@
 use rocket::{serde::json::Json, response::status, State, get, post, delete};
-use crate::protocol::protocol::{TableResponse, OrderResponse};
-use crate::db::mysql::OrdersInput;
-use crate::api::Storage;
+use crate::protocol::protocol::{OrderResponse, OrdersInput};
 use uuid::Uuid;
-
-#[get("/tables")]
-pub fn get_tables(storage: &State<Box<dyn Storage + Send + Sync>>) -> Result<Json<Vec<TableResponse>>, status::Custom<String>> {
-    storage.get_tables()
-        .map(Json)
-        .map_err(|e| status::Custom(rocket::http::Status::InternalServerError, e))
-}
+use crate::domain::tables::{add_orders, get_order, get_orders, remove_order};
+use crate::ServerState;
 
 #[get("/tables/<table_id>/orders")]
-pub fn get_table_orders(table_id: u64, storage: &State<Box<dyn Storage + Send + Sync>>) -> Result<Json<Vec<OrderResponse>>, status::Custom<String>> {
-    storage.get_table_orders(table_id)
+pub fn get_table_orders(table_id: u64, state: &State<Box<ServerState>>) -> Result<Json<Vec<OrderResponse>>, status::Custom<String>> {
+
+    let mut order_results = Vec::new();
+    get_orders(table_id, state).and_then(|domain_orders| {
+        for order_input in domain_orders {
+            let order = OrderResponse {
+                id: order_input.id,
+                menu_item: order_input.menu_item,
+                cooking_time: order_input.cooking_time,
+            };
+            order_results.push(order);
+        }
+        Ok(order_results)
+    })
         .map(Json)
         .map_err(|e| status::Custom(rocket::http::Status::InternalServerError, e))
 }
 
 #[get("/tables/<table_id>/orders/<order_id>")]
-pub fn get_table_order(table_id: u64, order_id: String, storage: &State<Box<dyn Storage + Send + Sync>>) -> Result<Json<OrderResponse>, status::Custom<String>> {
-    let uuid = Uuid::parse_str(&order_id).map_err(|e| status::Custom(rocket::http::Status::BadRequest, e.to_string()))?;
-    storage.get_table_order(table_id, uuid)
-        .map(Json)
+pub fn get_table_order(table_id: u64, order_id: String, state: &State<Box<ServerState>>) -> Result<Json<OrderResponse>, status::Custom<String>> {
+    let order_id = Uuid::parse_str(&order_id).map_err(|e| status::Custom(rocket::http::Status::BadRequest, e.to_string()))?;
+    get_order(table_id, order_id, state)
+        .map(|order| {
+            let order_input = OrderResponse {
+                id: order.id,
+                menu_item: order.menu_item,
+                cooking_time: order.cooking_time,
+            };
+            Json(order_input)
+        })
         .map_err(|e| status::Custom(rocket::http::Status::InternalServerError, e))
 }
 
 #[post("/tables/<table_id>/orders", data = "<orders_data>")]
-pub fn add_table_orders(table_id: u64, orders_data: Json<OrdersInput>, storage: &State<Box<dyn Storage + Send + Sync>>) -> Result<Json<Vec<Uuid>>, status::Custom<String>> {
-    storage.add_table_orders(table_id, orders_data.into_inner())
+pub fn add_table_orders(table_id: u64, orders_data: Json<OrdersInput>, state: &State<Box<ServerState>>) -> Result<Json<Vec<Uuid>>, status::Custom<String>> {
+    add_orders(table_id, orders_data.into_inner(), state)
         .map(Json)
         .map_err(|e| status::Custom(rocket::http::Status::InternalServerError, e))
 }
 
 #[delete("/tables/<table_id>/orders/<order_id>")]
-pub fn delete_table_order(table_id: u64, order_id: String, storage: &State<Box<dyn Storage + Send + Sync>>) -> Result<status::NoContent, status::Custom<String>> {
+pub fn delete_table_order(table_id: u64, order_id: String, state: &State<Box<ServerState>>) -> Result<Json<()>, status::Custom<String>> {
     let uuid = Uuid::parse_str(&order_id).map_err(|e| status::Custom(rocket::http::Status::BadRequest, e.to_string()))?;
-    storage.delete_table_order(table_id, uuid)
-        .map(|_| status::NoContent)
+    remove_order(table_id, uuid, state)
+        .map(|_| Json(()))
         .map_err(|e| status::Custom(rocket::http::Status::InternalServerError, e))
 }
 
@@ -48,26 +60,12 @@ mod tests {
     use rocket::local::blocking::Client;
     use rocket::figment::Figment;
     use rocket::Config;
-    use crate::db::mysql::{OrdersInput, OrderInput};
     use uuid::Uuid;
     use mysql::serde_json;
 
     struct MockStorage;
 
     impl Storage for MockStorage {
-        fn get_tables(&self) -> Result<Vec<TableResponse>, String> {
-            Ok(vec![
-                TableResponse {
-                    id: 1,
-                    orders: vec![(Uuid::new_v4(), OrderResponse {
-                        id: Uuid::new_v4(),
-                        menu_item: "Mock Item".to_string(),
-                        cooking_time: "10 minutes".to_string(),
-                    })].into_iter().collect(),
-                }
-            ])
-        }
-
         fn get_table_orders(&self, _table_id: u64) -> Result<Vec<OrderResponse>, String> {
             Ok(vec![
                 OrderResponse {
@@ -103,7 +101,6 @@ mod tests {
         rocket::custom(figment)
             .manage(Box::new(MockStorage) as Box<dyn Storage + Send + Sync>)
             .mount("/", routes![
-                get_tables,
                 get_table_orders,
                 get_table_order,
                 add_table_orders,

@@ -1,14 +1,8 @@
 #[macro_use] extern crate rocket;
 
-mod api;
-mod db;
-mod domain;
-mod protocol;
-
-use db::mysql::MySqlDb;
+use ryans_restaurant_app::{db::{mysql::MySqlDb, Storage}, api, ServerState};
 use dotenv::dotenv;
 use std::env;
-use api::Storage;
 
 #[launch]
 fn rocket() -> _ {
@@ -17,7 +11,10 @@ fn rocket() -> _ {
     let database_url = env::var("RESTAURANT_DATABASE_URL").expect("RESTAURANT_DATABASE_URL must be declared");
     let secret_key = env::var("SECRET_KEY").expect("SECRET_KEY must be declared");
 
-    let db: Box<dyn Storage + Send + Sync> = Box::new(MySqlDb::new(&database_url));
+    let db = MySqlDb::new(&database_url);
+    let state = Box::new(ServerState{
+        db:Box::new(db) as Box<dyn Storage>
+    });
 
     rocket::custom(
         rocket::Config::figment()
@@ -26,9 +23,8 @@ fn rocket() -> _ {
             )))
             .merge(("secret_key", secret_key))
     )
-        .manage(db)
+        .manage(state)
         .mount("/", routes![
-        api::tables::get_tables,
         api::tables::add_table_orders,
         api::tables::delete_table_order,
         api::tables::get_table_orders,
