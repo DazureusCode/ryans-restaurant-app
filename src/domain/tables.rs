@@ -91,3 +91,104 @@ fn convert_to_table_response(table_id: u64, orders: Vec<OrderResponse>) -> Table
         orders: orders.into_iter().map(|order| (order.id, order)).collect(),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::mysql::{OrderInput, MySqlDb};
+    use dotenv::dotenv;
+    use mysql::params;
+    use uuid::Uuid;
+    use std::env;
+
+    fn setup_test_db() -> MySqlDb {
+        dotenv().ok();
+        let database_url = env::var("TEST_DATABASE_URL").expect("TEST_DATABASE_URL must be established");
+        MySqlDb::new(&database_url)
+    }
+
+    fn get_connection() -> PooledConn {
+        let db = setup_test_db();
+        db.pool.get_conn().expect("Failed to get connection")
+    }
+
+    const INSERT_ORDER_SQL: &str = "INSERT INTO orders (order_id, table_id, menu_item, cooking_time) VALUES (:order_id, :table_id, 'Mock Item', '10 minutes')";
+    const DELETE_ORDER_SQL: &str = "DELETE FROM orders WHERE order_id = :order_id";
+
+    #[test]
+    fn test_get_all_tables() {
+        let mut conn = get_connection();
+        assert!(get_all_tables(&mut conn).is_ok());
+    }
+
+    #[test]
+    fn test_get_orders() {
+        let mut conn = get_connection();
+        let table_id = 1;
+        let order_id = Uuid::new_v4();
+
+        conn.exec_drop(
+            INSERT_ORDER_SQL,
+            params! {
+                "order_id" => order_id.to_string(),
+                "table_id" => table_id,
+            }
+        ).unwrap();
+        let result = get_orders(table_id, &mut conn);
+        assert!(result.is_ok(), "Expected Ok but got Err: {:?}", result.err());
+        conn.exec_drop(
+            DELETE_ORDER_SQL,
+            params! {
+                "order_id" => order_id.to_string(),
+            }
+        ).unwrap();
+    }
+
+    #[test]
+    fn test_get_order() {
+        let mut conn = get_connection();
+        let table_id = 1;
+        let order_id = Uuid::new_v4();
+
+        conn.exec_drop(
+            INSERT_ORDER_SQL,
+            params! {
+                "order_id" => order_id.to_string(),
+                "table_id" => table_id,
+            }
+        ).unwrap();
+        let result = get_order(table_id, order_id, &mut conn);
+        assert!(result.is_ok(), "Expected Ok but got Err: {:?}", result.err());
+        conn.exec_drop(
+            DELETE_ORDER_SQL,
+            params! {
+                "order_id" => order_id.to_string(),
+            }
+        ).unwrap();
+    }
+
+    #[test]
+    fn test_add_orders() {
+        let mut conn = get_connection();
+        let orders_input = OrdersInput {
+            orders: vec![OrderInput { menu_item: "Mock Item".into() }],
+        };
+        assert!(add_orders(1, orders_input, &mut conn).is_ok());
+    }
+
+    #[test]
+    fn test_remove_order() {
+        let mut conn = get_connection();
+        let table_id = 1;
+        let order_id = Uuid::new_v4();
+        conn.exec_drop(
+            INSERT_ORDER_SQL,
+            params! {
+                "order_id" => order_id.to_string(),
+                "table_id" => table_id,
+            }
+        ).unwrap();
+        let result = remove_order(table_id, order_id, &mut conn);
+        assert!(result.is_ok(), "Expected Ok but got Err: {:?}", result.err());
+    }
+}

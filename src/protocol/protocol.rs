@@ -2,13 +2,13 @@ use serde::Serialize;
 use uuid::Uuid;
 use std::collections::HashMap;
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct TableResponse {
     pub id: u64,
     pub orders: HashMap<Uuid, OrderResponse>,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct OrderResponse {
     pub id: Uuid,
     pub menu_item: String,
