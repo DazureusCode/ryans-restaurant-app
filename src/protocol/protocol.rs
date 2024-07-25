@@ -3,12 +3,12 @@ use serde::Serialize;
 use std::collections::HashMap;
 use uuid::Uuid;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct OrderInput {
     pub menu_item: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct OrdersInput {
     pub orders: Vec<OrderInput>,
 }

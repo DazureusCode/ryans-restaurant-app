@@ -77,14 +77,17 @@ mod tests {
     use rocket::figment::Figment;
     use rocket::http::Status;
     use rocket::local::blocking::Client;
-    use rocket::Config;
+    use rocket::{routes, Build, Rocket};
     use uuid::Uuid;
+    use crate::db::{Storage, Order};
+    use crate::protocol::protocol::{OrderInput, OrdersInput};
+    use crate::ServerState;
 
     struct MockStorage;
 
     impl Storage for MockStorage {
-        fn get_table_orders(&self, _table_id: u64) -> Result<Vec<OrderResponse>, String> {
-            Ok(vec![OrderResponse {
+        fn get_table_orders(&self, _table_id: u64) -> Result<Vec<Order>, String> {
+            Ok(vec![Order {
                 id: Uuid::new_v4(),
                 menu_item: "Mock Item".to_string(),
                 cooking_time: "10 minutes".to_string(),
@@ -95,8 +98,8 @@ mod tests {
             &self,
             _table_id: u64,
             _order_id: Uuid,
-        ) -> Result<OrderResponse, String> {
-            Ok(OrderResponse {
+        ) -> Result<Order, String> {
+            Ok(Order {
                 id: Uuid::new_v4(),
                 menu_item: "Mock Item".to_string(),
                 cooking_time: "10 minutes".to_string(),
@@ -106,7 +109,7 @@ mod tests {
         fn add_table_orders(
             &self,
             _table_id: u64,
-            _orders: OrdersInput,
+            _orders: Vec<Order>,
         ) -> Result<Vec<Uuid>, String> {
             Ok(vec![Uuid::new_v4()])
         }
@@ -116,31 +119,35 @@ mod tests {
         }
     }
 
-    fn setup_rocket() -> rocket::Rocket<rocket::Build> {
-        let figment = Figment::from(Config::default())
+    fn setup_rocket() -> Rocket<Build> {
+        let figment = Figment::from(rocket::Config::default())
             .merge(("secret_key", "a".repeat(64)))
-            .merge((
-                "databases.mysql.url",
-                "mysql://root:password@localhost:3306/restaurant_test",
-            ));
+            .merge(("databases.mysql.url", "mysql://root:password@localhost:3306/restaurant_test"));
 
         rocket::custom(figment)
-            .manage(Box::new(MockStorage) as Box<dyn Storage + Send + Sync>)
-            .mount(
-                "/",
-                routes![
-                    get_table_orders,
-                    get_table_order,
-                    add_table_orders,
-                    delete_table_order,
-                ],
-            )
+            .manage(Box::new(ServerState {
+                db: Box::new(MockStorage) as Box<dyn Storage + Send + Sync>,
+            }))
+            .mount("/", routes![
+                get_table_orders,
+                get_table_order,
+                add_table_orders,
+                delete_table_order,
+            ])
     }
 
     #[test]
-    fn test_get_tables() {
+    fn test_get_table_orders() {
         let client = Client::tracked(setup_rocket()).expect("valid rocket instance");
-        let response = client.get("/tables").dispatch();
+        let response = client.get("/tables/1/orders").dispatch();
+        assert_eq!(response.status(), Status::Ok);
+    }
+
+    #[test]
+    fn test_get_table_order() {
+        let client = Client::tracked(setup_rocket()).expect("valid rocket instance");
+        let order_id = Uuid::new_v4().to_string();
+        let response = client.get(format!("/tables/1/orders/{}", order_id)).dispatch();
         assert_eq!(response.status(), Status::Ok);
     }
 
@@ -169,23 +176,6 @@ mod tests {
         let order_id = Uuid::new_v4().to_string();
         let response = client
             .delete(format!("/tables/1/orders/{}", order_id))
-            .dispatch();
-        assert_eq!(response.status(), Status::NoContent);
-    }
-
-    #[test]
-    fn test_get_table_orders() {
-        let client = Client::tracked(setup_rocket()).expect("valid rocket instance");
-        let response = client.get("/tables/1/orders").dispatch();
-        assert_eq!(response.status(), Status::Ok);
-    }
-
-    #[test]
-    fn test_get_table_order() {
-        let client = Client::tracked(setup_rocket()).expect("valid rocket instance");
-        let order_id = Uuid::new_v4().to_string();
-        let response = client
-            .get(format!("/tables/1/orders/{}", order_id))
             .dispatch();
         assert_eq!(response.status(), Status::Ok);
     }

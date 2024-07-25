@@ -87,16 +87,21 @@ pub fn remove_order(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::mysql::{MySqlDb, OrderInput};
-    use dotenv::dotenv;
-    use mysql::params;
+    use crate::db::mysql::MySqlDb;
+    use crate::protocol::protocol::{OrderInput, OrdersInput};
+    use crate::ServerState;
+    use dotenv::from_filename;
+    use mysql::{params, PooledConn};
+    use mysql::prelude::Queryable;
+    use rocket::{State, local::blocking::Client, Build, Rocket};
+    use rocket::figment::Figment;
     use std::env;
+    use crate::db::Storage;
     use uuid::Uuid;
 
     fn setup_test_db() -> MySqlDb {
-        dotenv().ok();
-        let database_url =
-            env::var("TEST_DATABASE_URL").expect("TEST_DATABASE_URL must be established");
+        from_filename(".env.test").ok();
+        let database_url = env::var("TEST_DATABASE_URL").expect("TEST_DATABASE_URL must be established");
         MySqlDb::new(&database_url)
     }
 
@@ -105,11 +110,26 @@ mod tests {
         db.pool.get_conn().expect("Failed to get connection")
     }
 
+    fn setup_rocket() -> Rocket<Build> {
+        let db = setup_test_db();
+        let server_state = Box::new(ServerState {
+            db: Box::new(db) as Box<dyn Storage + Send + Sync>,
+        });
+
+        rocket::custom(Figment::from(rocket::Config::default()))
+            .manage(server_state)
+            .mount("/", rocket::routes![])
+    }
+
     const INSERT_ORDER_SQL: &str = "INSERT INTO orders (order_id, table_id, menu_item, cooking_time) VALUES (:order_id, :table_id, 'Mock Item', '10 minutes')";
     const DELETE_ORDER_SQL: &str = "DELETE FROM orders WHERE order_id = :order_id";
 
     #[test]
     fn test_get_orders() {
+        let rocket = setup_rocket();
+        let client = Client::tracked(rocket).expect("valid rocket instance");
+        let state = client.rocket().state::<Box<ServerState>>().expect("ServerState");
+
         let mut conn = get_connection();
         let table_id = 1;
         let order_id = Uuid::new_v4();
@@ -120,25 +140,29 @@ mod tests {
                 "order_id" => order_id.to_string(),
                 "table_id" => table_id,
             },
-        )
-        .unwrap();
-        let result = get_orders(table_id, &mut conn);
+        ).unwrap();
+
+        let result = get_orders(table_id, &State::from(state));
         assert!(
             result.is_ok(),
             "Expected Ok but got Err: {:?}",
             result.err()
         );
+
         conn.exec_drop(
             DELETE_ORDER_SQL,
             params! {
                 "order_id" => order_id.to_string(),
             },
-        )
-        .unwrap();
+        ).unwrap();
     }
 
     #[test]
     fn test_get_order() {
+        let rocket = setup_rocket();
+        let client = Client::tracked(rocket).expect("valid rocket instance");
+        let state = client.rocket().state::<Box<ServerState>>().expect("ServerState");
+
         let mut conn = get_connection();
         let table_id = 1;
         let order_id = Uuid::new_v4();
@@ -149,48 +173,56 @@ mod tests {
                 "order_id" => order_id.to_string(),
                 "table_id" => table_id,
             },
-        )
-        .unwrap();
-        let result = get_order(table_id, order_id, &mut conn);
+        ).unwrap();
+
+        let result = get_order(table_id, order_id, &State::from(state));
         assert!(
             result.is_ok(),
             "Expected Ok but got Err: {:?}",
             result.err()
         );
+
         conn.exec_drop(
             DELETE_ORDER_SQL,
             params! {
                 "order_id" => order_id.to_string(),
             },
-        )
-        .unwrap();
+        ).unwrap();
     }
 
     #[test]
     fn test_add_orders() {
-        let mut conn = get_connection();
+        let rocket = setup_rocket();
+        let client = Client::tracked(rocket).expect("valid rocket instance");
+        let state = client.rocket().state::<Box<ServerState>>().expect("ServerState");
+
         let orders_input = OrdersInput {
             orders: vec![OrderInput {
                 menu_item: "Mock Item".into(),
             }],
         };
-        assert!(add_orders(1, orders_input, &mut conn).is_ok());
+        assert!(add_orders(1, orders_input, &State::from(state)).is_ok());
     }
 
     #[test]
     fn test_remove_order() {
+        let rocket = setup_rocket();
+        let client = Client::tracked(rocket).expect("valid rocket instance");
+        let state = client.rocket().state::<Box<ServerState>>().expect("ServerState");
+
         let mut conn = get_connection();
         let table_id = 1;
         let order_id = Uuid::new_v4();
+
         conn.exec_drop(
             INSERT_ORDER_SQL,
             params! {
                 "order_id" => order_id.to_string(),
                 "table_id" => table_id,
             },
-        )
-        .unwrap();
-        let result = remove_order(table_id, order_id, &mut conn);
+        ).unwrap();
+
+        let result = remove_order(table_id, order_id, &State::from(state));
         assert!(
             result.is_ok(),
             "Expected Ok but got Err: {:?}",
