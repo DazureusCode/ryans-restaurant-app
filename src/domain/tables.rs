@@ -3,18 +3,12 @@ use crate::protocol::protocol::OrdersInput;
 use crate::ServerState;
 use rand::Rng;
 use rocket::State;
-use std::collections::HashMap;
 use uuid::Uuid;
 
 pub struct Order {
     pub id: Uuid,
     pub menu_item: String,
     pub cooking_time: String,
-}
-
-pub struct Table {
-    pub id: u64,
-    pub orders: HashMap<Uuid, crate::db::Order>,
 }
 
 pub fn get_orders(table_id: u64, state: &State<Box<ServerState>>) -> Result<Vec<Order>, String> {

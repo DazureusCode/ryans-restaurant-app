@@ -1,6 +1,5 @@
 use rocket::serde::Deserialize;
 use serde::Serialize;
-use std::collections::HashMap;
 use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -11,12 +10,6 @@ pub struct OrderInput {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct OrdersInput {
     pub orders: Vec<OrderInput>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct TableResponse {
-    pub id: u64,
-    pub orders: HashMap<Uuid, OrderResponse>,
 }
 
 #[derive(Debug, Serialize)]

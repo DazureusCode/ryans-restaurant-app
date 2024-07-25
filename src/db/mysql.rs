@@ -19,16 +19,18 @@ impl MySqlDb {
     }
 
     pub fn setup(mut conn: PooledConn) -> Result<(), String> {
-        conn.exec_drop(
-            "CREATE TABLE IF NOT EXISTS orders (
-            id VARCHAR(255),
+        conn.query_drop(
+            r"
+        DROP TABLE IF EXISTS orders;
+        CREATE TABLE orders (
+            order_id VARCHAR(255),
             menu_item VARCHAR(255),
             cooking_time VARCHAR(255),
             table_id INT
-        )",
-            (),
+        );
+        ",
         )
-        .map_err(|e| e.to_string())
+            .map_err(|e| format!("Failed to setup table: {:?}", e))
     }
 }
 

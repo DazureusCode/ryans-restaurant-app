@@ -1,17 +1,11 @@
 pub mod mysql;
 
-use std::collections::HashMap;
 use uuid::Uuid;
 
 pub struct Order {
     pub id: Uuid,
     pub menu_item: String,
     pub cooking_time: String,
-}
-
-pub struct Table {
-    pub id: u64,
-    pub orders: HashMap<Uuid, Order>,
 }
 
 pub trait Storage: Send + Sync {
