@@ -1,0 +1,19 @@
+refactored to properly seperate api, domain, database
+# Please enter the commit message for your changes. Lines starting
+# with '#' will be ignored, and an empty message aborts the commit.
+#
+# Committer: DazureusCode <ryanwood@Ryans-MacBook-Pro.local>
+#
+# On branch master
+# Changes to be committed:
+#	modified:   .idea/ryans-restaurant-app.iml
+#	modified:   src/api/mod.rs
+#	modified:   src/api/tables.rs
+#	modified:   src/db/mod.rs
+#	modified:   src/db/mysql.rs
+#	modified:   src/domain/mod.rs
+#	modified:   src/domain/tables.rs
+#	new file:   src/lib.rs
+#	modified:   src/main.rs
+#	modified:   src/protocol/protocol.rs
+#

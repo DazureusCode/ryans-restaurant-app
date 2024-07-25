@@ -1,7 +1,7 @@
+use crate::db::{Order, Storage};
 use mysql::prelude::*;
 use mysql::*;
 use uuid::Uuid;
-use crate::db::{Order, Storage};
 
 pub struct MySqlDb {
     pub pool: Pool,
@@ -19,31 +19,34 @@ impl MySqlDb {
     }
 
     pub fn setup(mut conn: PooledConn) -> Result<(), String> {
-        conn.exec_drop("CREATE TABLE IF NOT EXISTS orders (
+        conn.exec_drop(
+            "CREATE TABLE IF NOT EXISTS orders (
             id VARCHAR(255),
             menu_item VARCHAR(255),
             cooking_time VARCHAR(255),
             table_id INT
-        )", ()).map_err(|e| e.to_string())
+        )",
+            (),
+        )
+        .map_err(|e| e.to_string())
     }
 }
 
 impl Storage for MySqlDb {
     fn get_table_orders(&self, table_id: u64) -> Result<Vec<Order>, String> {
         let mut conn = self.pool.get_conn().map_err(|e| e.to_string())?;
-            conn.exec_map(
-                "SELECT order_id, menu_item, cooking_time FROM orders WHERE table_id = :table_id",
-                params! {
-            "table_id" => table_id,
-        },
-                |(order_id, menu_item, cooking_time): (String, String, String)| {
-                    Order {
-                        id: Uuid::parse_str(&order_id).unwrap(),
-                        menu_item,
-                        cooking_time,
-                    }
-                }
-            ).map_err(|e| e.to_string())
+        conn.exec_map(
+            "SELECT order_id, menu_item, cooking_time FROM orders WHERE table_id = :table_id",
+            params! {
+                "table_id" => table_id,
+            },
+            |(order_id, menu_item, cooking_time): (String, String, String)| Order {
+                id: Uuid::parse_str(&order_id).unwrap(),
+                menu_item,
+                cooking_time,
+            },
+        )
+        .map_err(|e| e.to_string())
     }
 
     fn get_table_order(&self, table_id: u64, order_id: Uuid) -> Result<Order, String> {
@@ -87,10 +90,11 @@ impl Storage for MySqlDb {
         conn.exec_drop(
             "DELETE FROM orders WHERE table_id = :table_id AND order_id = :order_id",
             params! {
-            "table_id" => table_id,
-            "order_id" => order_id.to_string(),
-        }
-        ).map_err(|e| e.to_string())?;
+                "table_id" => table_id,
+                "order_id" => order_id.to_string(),
+            },
+        )
+        .map_err(|e| e.to_string())?;
         Ok(())
     }
 }

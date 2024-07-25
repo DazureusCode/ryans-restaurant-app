@@ -1,7 +1,7 @@
-use serde::Serialize;
-use uuid::Uuid;
-use std::collections::HashMap;
 use rocket::serde::Deserialize;
+use serde::Serialize;
+use std::collections::HashMap;
+use uuid::Uuid;
 
 #[derive(Debug, Deserialize)]
 pub struct OrderInput {

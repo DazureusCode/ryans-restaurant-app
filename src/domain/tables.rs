@@ -1,10 +1,10 @@
-use std::collections::HashMap;
-use uuid::Uuid;
-use rand::Rng;
-use rocket::State;
+use crate::db::Order as DBOrder;
 use crate::protocol::protocol::OrdersInput;
 use crate::ServerState;
-use crate::db::Order as DBOrder;
+use rand::Rng;
+use rocket::State;
+use std::collections::HashMap;
+use uuid::Uuid;
 
 pub struct Order {
     pub id: Uuid,
@@ -19,8 +19,7 @@ pub struct Table {
 
 pub fn get_orders(table_id: u64, state: &State<Box<ServerState>>) -> Result<Vec<Order>, String> {
     let mut order_results = Vec::new();
-    state.db.get_table_orders(table_id)
-    .and_then(|orders| {
+    state.db.get_table_orders(table_id).and_then(|orders| {
         for order_input in orders {
             let order = Order {
                 id: order_input.id,
@@ -33,18 +32,26 @@ pub fn get_orders(table_id: u64, state: &State<Box<ServerState>>) -> Result<Vec<
     })
 }
 
-pub fn get_order(table_id: u64, order_id: Uuid, state: &State<Box<ServerState>>) -> Result<Order, String> {
-    state.db.get_table_order(table_id, order_id)
-        .map(|order| {
-            Order {
-                id: order.id,
-                menu_item: order.menu_item,
-                cooking_time: order.cooking_time,
-            }
+pub fn get_order(
+    table_id: u64,
+    order_id: Uuid,
+    state: &State<Box<ServerState>>,
+) -> Result<Order, String> {
+    state
+        .db
+        .get_table_order(table_id, order_id)
+        .map(|order| Order {
+            id: order.id,
+            menu_item: order.menu_item,
+            cooking_time: order.cooking_time,
         })
 }
 
-pub fn add_orders(table_id: u64, orders_data: OrdersInput, state: &State<Box<ServerState>>) -> Result<Vec<Uuid>, String> {
+pub fn add_orders(
+    table_id: u64,
+    orders_data: OrdersInput,
+    state: &State<Box<ServerState>>,
+) -> Result<Vec<Uuid>, String> {
     let orders = orders_data.orders;
     let mut domain_orders = Vec::new();
     for order_input in orders {
@@ -69,22 +76,27 @@ pub fn add_orders(table_id: u64, orders_data: OrdersInput, state: &State<Box<Ser
     state.db.add_table_orders(table_id, db_orders)
 }
 
-pub fn remove_order(table_id: u64, order_id: Uuid, state: &State<Box<ServerState>>) -> Result<(), String> {
+pub fn remove_order(
+    table_id: u64,
+    order_id: Uuid,
+    state: &State<Box<ServerState>>,
+) -> Result<(), String> {
     state.db.delete_table_order(table_id, order_id)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::mysql::{OrderInput, MySqlDb};
+    use crate::db::mysql::{MySqlDb, OrderInput};
     use dotenv::dotenv;
     use mysql::params;
-    use uuid::Uuid;
     use std::env;
+    use uuid::Uuid;
 
     fn setup_test_db() -> MySqlDb {
         dotenv().ok();
-        let database_url = env::var("TEST_DATABASE_URL").expect("TEST_DATABASE_URL must be established");
+        let database_url =
+            env::var("TEST_DATABASE_URL").expect("TEST_DATABASE_URL must be established");
         MySqlDb::new(&database_url)
     }
 
@@ -107,16 +119,22 @@ mod tests {
             params! {
                 "order_id" => order_id.to_string(),
                 "table_id" => table_id,
-            }
-        ).unwrap();
+            },
+        )
+        .unwrap();
         let result = get_orders(table_id, &mut conn);
-        assert!(result.is_ok(), "Expected Ok but got Err: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Expected Ok but got Err: {:?}",
+            result.err()
+        );
         conn.exec_drop(
             DELETE_ORDER_SQL,
             params! {
                 "order_id" => order_id.to_string(),
-            }
-        ).unwrap();
+            },
+        )
+        .unwrap();
     }
 
     #[test]
@@ -130,23 +148,31 @@ mod tests {
             params! {
                 "order_id" => order_id.to_string(),
                 "table_id" => table_id,
-            }
-        ).unwrap();
+            },
+        )
+        .unwrap();
         let result = get_order(table_id, order_id, &mut conn);
-        assert!(result.is_ok(), "Expected Ok but got Err: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Expected Ok but got Err: {:?}",
+            result.err()
+        );
         conn.exec_drop(
             DELETE_ORDER_SQL,
             params! {
                 "order_id" => order_id.to_string(),
-            }
-        ).unwrap();
+            },
+        )
+        .unwrap();
     }
 
     #[test]
     fn test_add_orders() {
         let mut conn = get_connection();
         let orders_input = OrdersInput {
-            orders: vec![OrderInput { menu_item: "Mock Item".into() }],
+            orders: vec![OrderInput {
+                menu_item: "Mock Item".into(),
+            }],
         };
         assert!(add_orders(1, orders_input, &mut conn).is_ok());
     }
@@ -161,9 +187,14 @@ mod tests {
             params! {
                 "order_id" => order_id.to_string(),
                 "table_id" => table_id,
-            }
-        ).unwrap();
+            },
+        )
+        .unwrap();
         let result = remove_order(table_id, order_id, &mut conn);
-        assert!(result.is_ok(), "Expected Ok but got Err: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Expected Ok but got Err: {:?}",
+            result.err()
+        );
     }
 }

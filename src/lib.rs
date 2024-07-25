@@ -6,5 +6,5 @@ pub mod protocol;
 use crate::db::Storage;
 
 pub struct ServerState {
-    pub db: Box<dyn Storage>
+    pub db: Box<dyn Storage>,
 }
